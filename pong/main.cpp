@@ -344,7 +344,13 @@ int rec2;
 
 float getR(int q)
 {
-    return (rand() % q - q / 2) / (rec2/4+1);
+    int f = q;
+    return (rand() % f - f / 2) / rec2 ;
+}
+
+int getR2(int q)
+{
+    return (rand() % q - q / 2);
 }
 
 float sign_s(float a)
@@ -367,6 +373,7 @@ void div(std::vector<point> &p)
         auto tx = (p[i%sz].x + p[(i + 1)%sz].x) / 2.;
         auto ty = (p[i%sz].y + p[(i + 1)%sz].y) / 2.;
 
+
         auto rX = getR(q);
         auto rY = getR(q);
 
@@ -376,9 +383,8 @@ void div(std::vector<point> &p)
         tx += rX;
         ty += rY;
 
-
-
         point p2 = { tx,ty };
+
         if (i >= p.size()-1)
         {
             p.push_back(p2);
@@ -417,17 +423,17 @@ void GenerateLevel()
     }
     
     std::vector<point> p;
-    float d = 4.;
+    float d = 5.;
     int q = ginfo::gridSize/d;
-    p.push_back({ q, q });
-    p.push_back({ (int)(q*(d-1)), q });
-    p.push_back({ (int)(q*(d-1)), (int)(q * (d-1))});
-    p.push_back({ q, (int)(q*(d-1))});
+    int r = ginfo::gridSize / d/1.2;
+    p.push_back({ q+ getR2(r), q+ getR2(r) });
+    p.push_back({ (int)(q*(d-1))+getR2(r), q + getR2(r) });
+    p.push_back({ (int)(q*(d-1))+ getR2(r), (int)(q * (d-1))+ getR2(r) });
+    p.push_back({ q+getR2(r), (int)(q*(d-1))+ getR2(r) });
     //srand(timeGetTime()*.001);
     srand(seed++);
     //rec++;
     div(p);
-
 
     for (int i = 0; i < p.size(); i++)
     {
@@ -438,14 +444,14 @@ void GenerateLevel()
         int x1 = p[k].x;
         int y1 = p[k].y;
 
-        for (int tx = min(x,x1); tx <= max(x,x1); tx++)
-        {
-            map[tx][y] = cellType::wall;
-        }
-        for (int ty = min(y,y1); ty < max(y,y1); ty++)
-        {
-            map[x1][ty] = cellType::wall;
-        }
+            for (int tx = min(x, x1); tx <= max(x, x1); tx++)
+            {
+                map[tx][y] = cellType::wall;
+            }
+            for (int ty = min(y, y1); ty < max(y, y1); ty++)
+            {
+                map[x1][ty] = cellType::wall;
+            }
     }
 
 
@@ -455,55 +461,51 @@ void GenerateLevel()
         int x = p[j].x;
         int y = p[j].y;
 
-        int x1 = -1;
-        if (x > ginfo::gridSize / 4*3) x1 = ginfo::gridSize-1; 
-        if (x < ginfo::gridSize / 4) x1 = 0;
+        int dxR = ginfo::gridSize - x;
+        int dxL = x;
 
-        if (x1 != -1)
+        int dyR = ginfo::gridSize - y;
+        int dyL = y;
+
+        if (min(dxR, dxL) < min(dyR, dyL))
         {
-            if (x < x1)
+            if (dxR < dxL)
             {
-                for (int tx = x; tx <= x1; tx++)
+                for (int tx = x; tx < ginfo::gridSize; tx++)
                 {
                     map[tx][y] = cellType::wall;
                 }
             }
             else
             {
-                for (int tx = x; tx >= x1; tx--)
+                for (int tx = x; tx >=0; tx--)
                 {
                     map[tx][y] = cellType::wall;
                 }
             }
         }
-
-        int y1 = -1;
-        if (y > ginfo::gridSize / 4 * 3) y1 = ginfo::gridSize - 1;
-        if (y < ginfo::gridSize / 4) y1 = 0;
-
-        if (y1 != -1)
+        else
         {
-            if (y < y1)
+            if (dyR < dyL)
             {
-                for (int ty = y+1; ty <= y1; ty++)
+                for (int ty = y; ty < ginfo::gridSize; ty++)
                 {
-                    if (map[x][ty] == cellType::wall) break;
                     map[x][ty] = cellType::wall;
                 }
             }
             else
             {
-                for (int ty = y-1; ty >= y1; ty--)
+                for (int ty = y; ty >= 0; ty--)
                 {
-                    if (map[x][ty] == cellType::wall) break;
                     map[x][ty] = cellType::wall;
                 }
             }
         }
-
-
-
     }
+
+
+
+
 
     /*pCount++;
     int pM = 1000;
