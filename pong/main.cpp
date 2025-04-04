@@ -5,6 +5,7 @@
 #include "windows.h"
 #include "math.h"
 #include "debugapi.h"
+#include <vector>
 
 // секция данных игры  
 typedef struct {
@@ -330,6 +331,67 @@ int sign(float a)
     return 0;
 }
 
+struct point {
+    int x;
+    int y;
+};
+
+int rec_depth;
+int rec;
+int rec2;
+
+float getR(int q)
+{
+    return (rand() % q - q / 2) / rec2;
+}
+
+/*float sign(float a)
+{
+    if (a > 0) return 1;
+    if (a < 0) return -1;
+    return 0;
+}*/
+
+void div(std::vector<point> &p)
+{
+    int q = ginfo::gridSize / 4.;
+    rec--;
+    if (rec < 1) return;
+    int s = 100;
+    
+    for (int i = 0; i < p.size(); i+=2)
+    {
+        auto sz = p.size();
+        auto tx = (p[i%sz].x + p[(i + 1)%sz].x) / 2.;
+        auto ty = (p[i%sz].y + p[(i + 1)%sz].y) / 2.;
+
+        auto rX = getR(q);
+        auto rY = getR(q);
+
+        rX = sign(tx) * abs(rX);
+        rY = sign(ty) * abs(rY);
+
+        tx += rX;
+        ty += rY;
+
+
+
+        point p2 = { tx,ty };
+        if (i >= p.size()-1)
+        {
+            p.push_back(p2);
+        }
+        else
+        {
+            p.insert(p.begin() + i + 1, p2);
+        }
+    }
+    rec2 *= 2;
+
+    div(p);
+}
+
+
 void GenerateLevel()
 {
     int cornerSize = floor(ginfo::gridSize * ginfo::cornerOffset);
@@ -339,6 +401,11 @@ void GenerateLevel()
         for (int y = 0; y < ginfo::gridSize; y++)
         {
             map[x][y] = cellType::empty;
+
+            if (x == 0 || x == ginfo::gridSize - 1 || y == 0|| y == ginfo::gridSize - 1)
+            {
+                map[x][y] = cellType::wall;
+            }
         }
     }
 
@@ -346,24 +413,68 @@ void GenerateLevel()
     {
      //  Sleep(16);
     }
-    pCount++;
+    
+    std::vector<point> p;
+    int q = ginfo::gridSize/4.;
+    p.push_back({ q, q });
+    p.push_back({ q*3, q });
+    p.push_back({ q*3, q*3 });
+    p.push_back({ q, q*3 });
+    //srand(timeGetTime()*.001);
+    srand(0);
+    //rec++;
+    div(p);
+
+
+    for (int i = 0; i < p.size(); i++)
+    {
+        int j = i % p.size();
+        int k = (i+1) % p.size();
+        int x = p[j].x;
+        int y = p[j].y;
+        int x1 = p[k].x;
+        int y1 = p[k].y;
+
+        for (int tx = min(x,x1); tx <= max(x,x1); tx++)
+        {
+            map[tx][y] = cellType::wall;
+        }
+        for (int ty = min(y,y1); ty < max(y,y1); ty++)
+        {
+            map[x1][ty] = cellType::wall;
+        }
+
+        //map[x][y] = cellType::wall;
+
+       /* for (int tx = x; tx < x1; tx++)
+        {
+            map[tx][y1] = cellType::wall;
+        }
+        for (int ty = y; ty < y1; ty++)
+        {
+            map[x][ty] = cellType::wall;
+        }*/
+
+    }
+
+    /*pCount++;
     int pM = 1000;
     float dirX = 1;
     float dirY = 0;
     bool dir = false;
     srand(0);
     {
-        int len = 11;
-        int x = ginfo::gridSize /2 - sqrt(pCount);
-        int y = ginfo::gridSize /2 - sqrt(pCount);
+        int len = 5;
+        int x = ginfo::gridSize /5;
+        int y = ginfo::gridSize - ginfo::gridSize/5;
 
             for (int i = 0; i < pCount; i++)
             {
-                int j = i;// floorS(i, 10 + rand() % 100);
+                int j = i;
                 if (i > len)
                 {
-                    len = i + rand() % 10+10;
-                    float jt = (rand() % 5)/2.;
+                    len = i + rand() % 7+3;
+                    float jt = (rand() % 4-2)/2.;
                     dirX = sin(j / (float)pCount * 3.14 * 2.+jt);
                     dirY = cos(j / (float)pCount * 3.14 * 2.+jt);
 
@@ -395,7 +506,7 @@ void GenerateLevel()
             }
     }
 
-
+    */
 
 
     float f = ginfo::gridSize/16;
@@ -455,13 +566,20 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     InitWindow();//здесь инициализируем все что нужно для рисования в окне
     InitGame();//здесь инициализируем переменные игры
 
-
+    
     while (!GetAsyncKeyState(VK_ESCAPE))
     {
+        rec2 = 1;
+        rec = rec_depth;
         GenerateLevel();
         ShowRacketAndBall();//рисуем фон, ракетку и шарик
         BuildLevel();
         BitBlt(window.device_context, 0, 0, window.width, window.height, window.context, 0, 0, SRCCOPY);//копируем буфер в окно
         Sleep(16);//ждем 16 милисекунд (1/количество кадров в секунду)
+        while (!GetAsyncKeyState(VK_RETURN))
+        {
+            Sleep(60);
+        }
+        rec_depth++;
     }
 }
