@@ -13,6 +13,8 @@ typedef struct {
     HBITMAP hBitmap;//хэндл к спрайту шарика 
 } sprite;
 
+int seed = 0;
+
 // фундаментальные настройки игры
 namespace ginfo {
     const int gridSize = 256;
@@ -336,7 +338,7 @@ struct point {
     int y;
 };
 
-int rec_depth;
+int rec_depth=4;
 int rec;
 int rec2;
 
@@ -345,12 +347,12 @@ float getR(int q)
     return (rand() % q - q / 2) / rec2;
 }
 
-/*float sign(float a)
+float sign_s(float a)
 {
     if (a > 0) return 1;
     if (a < 0) return -1;
     return 0;
-}*/
+}
 
 void div(std::vector<point> &p)
 {
@@ -368,8 +370,8 @@ void div(std::vector<point> &p)
         auto rX = getR(q);
         auto rY = getR(q);
 
-        rX = sign(tx) * abs(rX);
-        rY = sign(ty) * abs(rY);
+        rX = sign_s(tx - ginfo::gridSize/2) * abs(rX);
+        rY = sign_s(ty - ginfo::gridSize / 2) * abs(rY);
 
         tx += rX;
         ty += rY;
@@ -421,7 +423,7 @@ void GenerateLevel()
     p.push_back({ q*3, q*3 });
     p.push_back({ q, q*3 });
     //srand(timeGetTime()*.001);
-    srand(0);
+    srand(seed++);
     //rec++;
     div(p);
 
@@ -555,6 +557,7 @@ void InitGame()
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     _In_opt_ HINSTANCE hPrevInstance,
     _In_ LPWSTR    lpCmdLine,
@@ -580,6 +583,5 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
         {
             Sleep(60);
         }
-        rec_depth++;
     }
 }
