@@ -83,6 +83,7 @@
       <EntryPointSymbol>
       </EntryPointSymbol>
       <AdditionalDependencies>Msimg32.lib;Winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <StackReserveSize>4194304</StackReserveSize>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">

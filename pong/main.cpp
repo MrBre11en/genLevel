@@ -221,58 +221,100 @@ void ThickenCell(int x, int y, int thickness, cellType targetType = cellType::fl
     }
 }
 
-void DivideArea(int count, int area[ginfo::gridSize / 2][ginfo::gridSize / 2], vector2 upLeftCorner, vector2 downRightCorner)
+void DivideArea(int count, bool area[ginfo::gridSize / 2][ginfo::gridSize / 2], vector2 upLeftCorner, vector2 downRightCorner, bool subGrid[5][5])
 {
-    float middle = 0.5 + GetRandom(-25, 25) / 100;
-    map[int(upLeftCorner.x)][int(upLeftCorner.y)] = cellType::floor;
+    int line = downRightCorner.x - upLeftCorner.x;
+    const int halfGridSize = ginfo::gridSize / 2;
 
-    count -= 1;
-    if (count % 2 == 0)
+    int subX = GetRandom(0, 4);
+    int subY = GetRandom(0, 4);
+    if (!subGrid[subX][subY])
     {
-        int line = downRightCorner.x - upLeftCorner.x;
-        int dividation = upLeftCorner.x + line * middle;
+        subGrid[subX][subY] = true;
 
-        for (int y = 0; y < downRightCorner.y - upLeftCorner.y; y++)
+        int subCell = 1 / 5;
+        float cellMid = subCell / 2;
+        float middleX = subX / 5 + cellMid + subCell * float(GetRandom(-25, 25)) / 100;
+        float middleY = subY / 5 + cellMid + subCell * float(GetRandom(-25, 25)) / 100;
+
+        float midLineX = line * middleX;
+        int dividationX = upLeftCorner.x + midLineX;
+
+        float midLineY = line * middleY;
+        int dividationY = upLeftCorner.y + midLineY;
+
+        count -= 1;
+        if (count % 2 == 0)
         {
-            if (area[dividation - int(upLeftCorner.x)][y] == 1)
+            for (int y = 0; y < halfGridSize; y++)
             {
-                if (map[dividation][y + int(upLeftCorner.y)] != cellType::wall)
+                int _y = dividationY - int(upLeftCorner.y) + y;
+                if (_y >= 0 && _y < halfGridSize && area[dividationX - int(upLeftCorner.x)][_y] == true)
                 {
-                    map[dividation][y + int(upLeftCorner.y)] = cellType::wall;
+                    if (map[dividationX][_y + int(upLeftCorner.y)] != cellType::wall)
+                    {
+                        map[dividationX][_y + int(upLeftCorner.y)] = cellType::wall;
+                    }
+                    else
+                    {
+                        break;
+                    }
                 }
-                else
+            }
+            for (int y = 1; y < halfGridSize; y++)
+            {
+                int _y = dividationY - int(upLeftCorner.y) - y;
+                if (_y >= 0 && _y < halfGridSize && area[dividationX - int(upLeftCorner.x)][_y] == true)
                 {
-                    break;
+                    if (map[dividationX][_y + int(upLeftCorner.y)] != cellType::wall)
+                    {
+                        map[dividationX][_y + int(upLeftCorner.y)] = cellType::wall;
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+            }
+        }
+        else
+        {
+            for (int x = 0; x < halfGridSize; x++)
+            {
+                int _x = dividationX - int(upLeftCorner.x) + x;
+                if (_x >= 0 && _x < halfGridSize && area[_x][dividationY - int(upLeftCorner.y)] == true)
+                {
+                    if (map[_x + int(upLeftCorner.x)][dividationY] != cellType::wall)
+                    {
+                        map[_x + int(upLeftCorner.x)][dividationY] = cellType::wall;
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+            }
+            for (int x = 1; x < halfGridSize; x++)
+            {
+                int _x = dividationX - int(upLeftCorner.x) - x;
+                if (_x >= 0 && _x < halfGridSize && area[_x][dividationY - int(upLeftCorner.y)] == true)
+                {
+                    if (map[_x + int(upLeftCorner.x)][dividationY] != cellType::wall)
+                    {
+                        map[_x + int(upLeftCorner.x)][dividationY] = cellType::wall;
+                    }
+                    else
+                    {
+                        break;
+                    }
                 }
             }
         }
     }
-    else
-    {
-        int line = downRightCorner.y - upLeftCorner.y;
-        int dividation = upLeftCorner.y + line * middle;
-
-        for (int x = 0; x < downRightCorner.x - upLeftCorner.x; x++)
-        {
-            if (area[x][dividation - int(upLeftCorner.y)] == 1)
-            {
-                if (map[x + int(upLeftCorner.x)][dividation] != cellType::wall)
-                {
-                    map[x + int(upLeftCorner.x)][dividation] = cellType::wall;
-                }
-                else
-                {
-                    break;
-                }
-            }
-        }
-    }
-
-    ShowPaused();
 
     if (count > 0)
     {
-        DivideArea(count, area, upLeftCorner, downRightCorner);
+        DivideArea(count, area, upLeftCorner, downRightCorner, subGrid);
     }
 }
 
@@ -323,7 +365,7 @@ void CrossLayout()
         for (int j = 0; j < 2; j++)
         {
 
-            int quarter[halfGridSize][halfGridSize];
+            bool quarter[halfGridSize][halfGridSize];
 
             for (int x = i * halfGridSize; x < i * halfGridSize + halfGridSize; x++)
             {
@@ -332,16 +374,20 @@ void CrossLayout()
                     if (map[x][y] == cellType::floor) {
                         int _x = x - i * halfGridSize;
                         int _y = y - j * halfGridSize;
-                        quarter[x - i * halfGridSize][y - j * halfGridSize] = 1;
+                        quarter[x - i * halfGridSize][y - j * halfGridSize] = true;
                     }
                     else
                     {
-                        quarter[x - i * halfGridSize][y - j * halfGridSize] = 0;
+                        quarter[x - i * halfGridSize][y - j * halfGridSize] = false;
                     }
                 }
             }
 
-            DivideArea(GetRandom(3, 10), quarter, vector2(i * halfGridSize, j * halfGridSize), vector2((i + 1) * halfGridSize, (j + 1) * halfGridSize));
+            bool subGrid[5][5];
+            DivideArea(GetRandom(3, 10), quarter, vector2(i * halfGridSize, j * halfGridSize), vector2((i + 1) * halfGridSize, (j + 1) * halfGridSize), subGrid);
+
+            delete quarter;
+            delete subGrid;
 
             //std::vector<room> rooms;
             //for (int x = 0; x < halfGridSize; x++)
@@ -537,6 +583,7 @@ void InitGame()
 
     //racket.x = window.width / 2.;//ракетка посередине окна
     //racket.y = window.height - racket.height;//чуть выше низа экрана - на высоту ракетки
+    srand(timeGetTime());
     GenerateLevel();
 }
 
