@@ -338,13 +338,13 @@ struct point {
     int y;
 };
 
-int rec_depth=4;
+int rec_depth=3;
 int rec;
 int rec2;
 
 float getR(int q)
 {
-    return (rand() % q - q / 2) / rec2;
+    return (rand() % q - q / 2) / (rec2/4+1);
 }
 
 float sign_s(float a)
@@ -417,11 +417,12 @@ void GenerateLevel()
     }
     
     std::vector<point> p;
-    int q = ginfo::gridSize/4.;
+    float d = 4.;
+    int q = ginfo::gridSize/d;
     p.push_back({ q, q });
-    p.push_back({ q*3, q });
-    p.push_back({ q*3, q*3 });
-    p.push_back({ q, q*3 });
+    p.push_back({ (int)(q*(d-1)), q });
+    p.push_back({ (int)(q*(d-1)), (int)(q * (d-1))});
+    p.push_back({ q, (int)(q*(d-1))});
     //srand(timeGetTime()*.001);
     srand(seed++);
     //rec++;
@@ -445,17 +446,62 @@ void GenerateLevel()
         {
             map[x1][ty] = cellType::wall;
         }
+    }
 
-        //map[x][y] = cellType::wall;
 
-       /* for (int tx = x; tx < x1; tx++)
+    for (int i = 0; i < p.size(); i++)
+    {
+        int j = i % p.size();
+        int x = p[j].x;
+        int y = p[j].y;
+
+        int x1 = -1;
+        if (x > ginfo::gridSize / 4*3) x1 = ginfo::gridSize-1; 
+        if (x < ginfo::gridSize / 4) x1 = 0;
+
+        if (x1 != -1)
         {
-            map[tx][y1] = cellType::wall;
+            if (x < x1)
+            {
+                for (int tx = x; tx <= x1; tx++)
+                {
+                    map[tx][y] = cellType::wall;
+                }
+            }
+            else
+            {
+                for (int tx = x; tx >= x1; tx--)
+                {
+                    map[tx][y] = cellType::wall;
+                }
+            }
         }
-        for (int ty = y; ty < y1; ty++)
+
+        int y1 = -1;
+        if (y > ginfo::gridSize / 4 * 3) y1 = ginfo::gridSize - 1;
+        if (y < ginfo::gridSize / 4) y1 = 0;
+
+        if (y1 != -1)
         {
-            map[x][ty] = cellType::wall;
-        }*/
+            if (y < y1)
+            {
+                for (int ty = y+1; ty <= y1; ty++)
+                {
+                    if (map[x][ty] == cellType::wall) break;
+                    map[x][ty] = cellType::wall;
+                }
+            }
+            else
+            {
+                for (int ty = y-1; ty >= y1; ty--)
+                {
+                    if (map[x][ty] == cellType::wall) break;
+                    map[x][ty] = cellType::wall;
+                }
+            }
+        }
+
+
 
     }
 
