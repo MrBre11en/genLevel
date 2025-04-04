@@ -7,6 +7,8 @@
 #include "debugapi.h"
 #include <vector>
 
+void ShowAll();
+
 // секция данных игры  
 typedef struct {
     float x, y, width, height, rad, dx, dy, speed;
@@ -181,6 +183,15 @@ bool isInnerCorner(int x, int y) {
     return false;
 }
 
+void ShowPaused()
+{
+    while (!GetAsyncKeyState(VK_RETURN))
+    {
+        ShowAll();
+    }
+}
+
+
 // Функции для чего-то там в генерации
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -210,15 +221,54 @@ void ThickenCell(int x, int y, int thickness, cellType targetType = cellType::fl
     }
 }
 
-void DivideArea(int count, int area[ginfo::gridSize][ginfo::gridSize], vector2 upLeftCorner, vector2 downRightCorner)
+void DivideArea(int count, int area[ginfo::gridSize / 2][ginfo::gridSize / 2], vector2 upLeftCorner, vector2 downRightCorner)
 {
     float middle = 0.5 + GetRandom(-25, 25) / 100;
+    map[int(upLeftCorner.x)][int(upLeftCorner.y)] = cellType::floor;
+
     count -= 1;
     if (count % 2 == 0)
     {
         int line = downRightCorner.x - upLeftCorner.x;
-        int dividation = line * middle;
+        int dividation = upLeftCorner.x + line * middle;
+
+        for (int y = 0; y < downRightCorner.y - upLeftCorner.y; y++)
+        {
+            if (area[dividation - int(upLeftCorner.x)][y] == 1)
+            {
+                if (map[dividation][y + int(upLeftCorner.y)] != cellType::wall)
+                {
+                    map[dividation][y + int(upLeftCorner.y)] = cellType::wall;
+                }
+                else
+                {
+                    break;
+                }
+            }
+        }
     }
+    else
+    {
+        int line = downRightCorner.y - upLeftCorner.y;
+        int dividation = upLeftCorner.y + line * middle;
+
+        for (int x = 0; x < downRightCorner.x - upLeftCorner.x; x++)
+        {
+            if (area[x][dividation - int(upLeftCorner.y)] == 1)
+            {
+                if (map[x + int(upLeftCorner.x)][dividation] != cellType::wall)
+                {
+                    map[x + int(upLeftCorner.x)][dividation] = cellType::wall;
+                }
+                else
+                {
+                    break;
+                }
+            }
+        }
+    }
+
+    ShowPaused();
 
     if (count > 0)
     {
@@ -272,6 +322,7 @@ void CrossLayout()
     {
         for (int j = 0; j < 2; j++)
         {
+
             int quarter[halfGridSize][halfGridSize];
 
             for (int x = i * halfGridSize; x < i * halfGridSize + halfGridSize; x++)
@@ -290,101 +341,103 @@ void CrossLayout()
                 }
             }
 
-            std::vector<room> rooms;
-            for (int x = 0; x < halfGridSize; x++)
-            {
-                for (int y = 0; y < halfGridSize; y++)
-                {
-                    int possibility = quarter[x][y];
-                    if (possibility > 0 && GetRandom(80000) <= possibility)
-                    {
-                        int realx = x + i * halfGridSize;
-                        int realy = y + j * halfGridSize;
-                        room _room = room();
-                        vector2 vector = vector2(realx, realy);
-                        for (int n = 0; n < 4; n++)
-                        {
-                            _room.corners.push_back(vector);
-                        }
+            DivideArea(GetRandom(3, 10), quarter, vector2(i * halfGridSize, j * halfGridSize), vector2((i + 1) * halfGridSize, (j + 1) * halfGridSize));
 
-                        rooms.push_back(_room);
-                        map[realx][realy] = cellType::reserved;
-                    }
-                }
-            }
+            //std::vector<room> rooms;
+            //for (int x = 0; x < halfGridSize; x++)
+            //{
+            //    for (int y = 0; y < halfGridSize; y++)
+            //    {
+            //        int possibility = quarter[x][y];
+            //        if (possibility > 0 && GetRandom(80000) <= possibility)
+            //        {
+            //            int realx = x + i * halfGridSize;
+            //            int realy = y + j * halfGridSize;
+            //            room _room = room();
+            //            vector2 vector = vector2(realx, realy);
+            //            for (int n = 0; n < 4; n++)
+            //            {
+            //                _room.corners.push_back(vector);
+            //            }
 
-            bool freeCells = true;
-            while (freeCells)
-            {
-                freeCells = false;
-                for (int i = 0; i < rooms.size(); i++)
-                {
-                    room* _room = &rooms[i];
-                    int size = _room->corners.size();
+            //            rooms.push_back(_room);
+            //            map[realx][realy] = cellType::reserved;
+            //        }
+            //    }
+            //}
 
-                    int theBiggestWall = 0;
-                    vector2* selected_point1 = &_room->corners[0];
-                    vector2* selected_point2 = &_room->corners[0];
-                    int point2_index = 0;
-                    for (int n = 0; n < size; n++)
-                    {
-                        vector2* point1 = &_room->corners[n];
-                        vector2* point2;
-                        if (n < size - 1)
-                        {
-                            point2 = &_room->corners[n + 1];
-                        }
-                        else
-                        {
-                            point2 = &_room->corners[0];
-                        }
+            //bool freeCells = true;
+            //while (freeCells)
+            //{
+            //    freeCells = false;
+            //    for (int i = 0; i < rooms.size(); i++)
+            //    {
+            //        room* _room = &rooms[i];
+            //        int size = _room->corners.size();
 
-                        int wallSize = abs((point2->x - point1->x) + (point2->y - point1->y));
-                        if (wallSize >= theBiggestWall)
-                        {
-                            theBiggestWall = wallSize;
-                            selected_point1 = point1;
-                            selected_point2 = point2;
-                            point2_index = n;
-                        }
-                    }
+            //        int theBiggestWall = 0;
+            //        vector2* selected_point1 = &_room->corners[0];
+            //        vector2* selected_point2 = &_room->corners[0];
+            //        int point2_index = 0;
+            //        for (int n = 0; n < size; n++)
+            //        {
+            //            vector2* point1 = &_room->corners[n];
+            //            vector2* point2;
+            //            if (n < size - 1)
+            //            {
+            //                point2 = &_room->corners[n + 1];
+            //            }
+            //            else
+            //            {
+            //                point2 = &_room->corners[0];
+            //            }
 
-                    vector2 wallVector = vector2(selected_point2->x - selected_point1->x, selected_point2->y - selected_point1->y);
-                    vector2 normal = vector2(-wallVector.y, wallVector.x).unit();
+            //            int wallSize = abs((point2->x - point1->x) + (point2->y - point1->y));
+            //            if (wallSize >= theBiggestWall)
+            //            {
+            //                theBiggestWall = wallSize;
+            //                selected_point1 = point1;
+            //                selected_point2 = point2;
+            //                point2_index = n;
+            //            }
+            //        }
 
-                    if (wallVector.x > 0)
-                    {
-                        int y = selected_point1->y;
-                        for (int x = selected_point1->x; x <= selected_point2->x; x++)
-                        {
-                            if (map[x][y] == cellType::floor) {
-                                //vector2 newvector = vector2(_x, _y);
-                                //_room->cells.push_back(newvector);
+            //        vector2 wallVector = vector2(selected_point2->x - selected_point1->x, selected_point2->y - selected_point1->y);
+            //        vector2 normal = vector2(-wallVector.y, wallVector.x).unit();
 
-                                map[x][y] = cellType::reserved;
-                                freeCells = true;
-                            }
-                            else
-                            {
-                                selected_point2->x = x - 1;
+            //        if (wallVector.x > 0)
+            //        {
+            //            int y = selected_point1->y;
+            //            for (int x = selected_point1->x; x <= selected_point2->x; x++)
+            //            {
+            //                if (map[x][y] == cellType::floor) {
+            //                    //vector2 newvector = vector2(_x, _y);
+            //                    //_room->cells.push_back(newvector);
 
-                                cellType cell = map[x][y];
-                                
-                                bool reservedCell = true;
-                                for (int _x = x; _x <= selected_point2->x; _x++)
-                                {
-                                    if (cell == cellType::floor || not reservedCell)
-                                    {
-                                        reservedCell = not reservedCell;
-                                        vector2 new_corner = vector2(_x, y);
-                                        _room->corners.insert(_room->corners.begin() + point2_index + 1, new_corner);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            //                    map[x][y] = cellType::reserved;
+            //                    freeCells = true;
+            //                }
+            //                else
+            //                {
+            //                    selected_point2->x = x - 1;
+
+            //                    cellType cell = map[x][y];
+            //                    
+            //                    bool reservedCell = true;
+            //                    for (int _x = x; _x <= selected_point2->x; _x++)
+            //                    {
+            //                        if (cell == cellType::floor || not reservedCell)
+            //                        {
+            //                            reservedCell = not reservedCell;
+            //                            vector2 new_corner = vector2(_x, y);
+            //                            _room->corners.insert(_room->corners.begin() + point2_index + 1, new_corner);
+            //                        }
+            //                    }
+            //                }
+            //            }
+            //        }
+            //    }
+            //}
         }
     }
 }
@@ -489,6 +542,13 @@ void InitGame()
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+void ShowAll()
+{
+    BuildLevel();
+    BitBlt(window.device_context, 0, 0, window.width, window.height, window.context, 0, 0, SRCCOPY);//копируем буфер в окно
+    Sleep(16);//ждем 16 милисекунд (1/количество кадров в секунду)
+}
+
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     _In_opt_ HINSTANCE hPrevInstance,
     _In_ LPWSTR    lpCmdLine,
@@ -504,8 +564,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     while (!GetAsyncKeyState(VK_ESCAPE))
     {
         ShowRacketAndBall();//рисуем фон, ракетку и шарик
-        BuildLevel();
-        BitBlt(window.device_context, 0, 0, window.width, window.height, window.context, 0, 0, SRCCOPY);//копируем буфер в окно
-        Sleep(16);//ждем 16 милисекунд (1/количество кадров в секунду)
+        ShowAll();
     }
 }
