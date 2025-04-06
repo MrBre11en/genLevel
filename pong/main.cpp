@@ -18,10 +18,145 @@ struct {
 } window;
 
 struct point3d {
-    float x;
-    float y;
-    float z;
+    float x = 0;
+    float y = 0;
+    float z = 0;
+
+    float magnitude()
+    {
+        return sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2));
+    }
+
+    point3d normalized()
+    {
+        float mag = magnitude();
+        return { x / mag, y / mag, z / mag };
+    }
+
+    //
+
+    point3d operator + (const point3d& point) const
+    {
+        return { x + point.x, y + point.y, z + point.z };
+    }
+
+    point3d operator - (const point3d& point) const
+    {
+        return { x - point.x, y - point.y, z - point.z };
+    }
+
+    point3d operator * (const point3d& point) const
+    {
+        return { x * point.x, y * point.y, z * point.z };
+    }
+
+    point3d operator * (const float num) const
+    {
+        return { x * num, y * num, z * num };
+    }
+
+    point3d operator / (const point3d& point) const
+    {
+        return { x / point.x, y / point.y, z / point.z };
+    }
+
+    point3d operator / (const float num) const
+    {
+        return { x / num, y / num, z / num };
+    }
 };
+
+const float PI = 3.1415926535897;
+
+void rotateX(point3d& p, float angle)// поворот по Оси X.
+{
+    float a = angle * PI / 180.;
+
+    float x1 = p.x;
+    float y1 = p.y * cos(a) - p.z * sin(a);
+    float z1 = p.y * sin(a) + p.z * cos(a);
+
+    p.x = x1;
+    p.y = y1;
+    p.z = z1;
+}
+
+void rotateY(point3d& p, float angle)// поворот по Оси Y.
+{
+    float a = angle * PI / 180.;
+
+    float x1 = p.x * cos(a) - p.z * sin(a);
+    float y1 = p.y;
+    float z1 = p.x * sin(a) + p.z * cos(a);
+
+    p.x = x1;
+    p.y = y1;
+    p.z = z1;
+}
+
+void rotateZ(point3d& p, float angle)// поворот по Оси Z.
+{
+    float a = angle * PI / 180.;
+
+    float x1 = p.x * cos(a) - p.y * sin(a);
+    float y1 = p.x * sin(a) + p.y * cos(a);
+    float z1 = p.z;
+
+    p.x = x1;
+    p.y = y1;
+    p.z = z1;
+}
+
+void rotate2d(point3d& p, float angle)// поворот по Оси Z.
+{
+    float a = angle * PI / 180.;
+
+    float x1 = p.x * cos(a) - p.y * sin(a);
+    float y1 = p.x * sin(a) + p.y * cos(a);
+
+    p.x = x1;
+    p.y = y1;
+}
+
+void rotate(point3d& p1, point3d& p2)
+{
+    float t = timeGetTime() * .01;
+    rotateZ(p1, t);
+    rotateX(p1, -60);
+    rotateZ(p2, t);
+    rotateX(p2, -60);
+
+}
+
+void project(point3d& p)
+{
+    float camDist = 3;
+    float x = p.x * camDist / (p.z + camDist);
+    float y = p.y * camDist / (p.z + camDist);
+    p.x = x;
+    p.y = y;
+}
+
+void Line(point3d p1, point3d p2)
+{
+    p1.x = window.width / 2. + p1.x * window.height / 4.;
+    p1.y = window.height / 2. + p1.y * window.height / 4.;
+    p2.x = window.width / 2. + p2.x * window.height / 4.;
+    p2.y = window.height / 2. + p2.y * window.height / 4.;
+
+    MoveToEx(window.context, p1.x, p1.y, NULL);
+    LineTo(window.context, p2.x, p2.y);
+
+    //Polygon(window.context, )
+}
+
+void line3d(point3d p1, point3d p2)
+{
+    rotate(p1, p2);
+    project(p1);
+    project(p2);
+    Line(p1, p2);
+}
 
 int rec_depth=3;
 int rec;
@@ -87,16 +222,37 @@ void div(std::vector<point3d> &p)
 
 
 
-void Line(point3d p1, point3d p2)
+
+void Plane(point3d p1, point3d p2, point3d p3, point3d p4)
 {
+    //extrusion
+
+    
+
+    //camera
+    rotate(p1, p2);
+    rotate(p3, p4);
+    project(p1);
+    project(p2);
+    project(p3);
+    project(p4);
+
     p1.x = window.width / 2. + p1.x * window.height / 4.;
     p1.y = window.height / 2. + p1.y * window.height / 4.;
     p2.x = window.width / 2. + p2.x * window.height / 4.;
     p2.y = window.height / 2. + p2.y * window.height / 4.;
+    p3.x = window.width / 2. + p3.x * window.height / 4.;
+    p3.y = window.height / 2. + p3.y * window.height / 4.;
+    p4.x = window.width / 2. + p4.x * window.height / 4.;
+    p4.y = window.height / 2. + p4.y * window.height / 4.;
 
-    MoveToEx(window.context, p1.x, p1.y, NULL);
-    LineTo(window.context, p2.x, p2.y);
+    POINT list[4]{ POINT{long(p1.x), long(p1.y)}, POINT{long(p2.x), long(p2.y)} , POINT{long(p3.x), long(p3.y)} , POINT{long(p4.x), long(p4.y)} };
+
+//    MoveToEx(window.context, p1.x, p1.y, NULL);
+//    LineTo(window.context, p2.x, p2.y);
+    Polygon(window.context, list, 4);
 }
+
 int seed = 0;
 
 void clrScr()
@@ -108,89 +264,11 @@ void clrScr()
     DeleteObject(blackBrush);
 }
 
-void notmalize2d(point3d& p)
+
+
+void plane3d(point3d p1, point3d p2)
 {
-    float len = sqrt(p.x * p.x + p.y * p.y);
-    p.x /= len;
-    p.y /= len;
-}
-const float PI = 3.1415926535897;
-
-void rotateX(point3d& p, float angle)// поворот по Оси X.
-{
-    float a = angle * PI / 180.;
-
-    float x1 = p.x;
-    float y1 = p.y * cos(a) - p.z * sin(a);
-    float z1 = p.y * sin(a) + p.z * cos(a);
-
-    p.x = x1;
-    p.y = y1;
-    p.z = z1;
-}
-
-void rotateY(point3d& p, float angle)// поворот по Оси Y.
-{
-    float a = angle * PI / 180.;
-
-    float x1 = p.x * cos(a) - p.z * sin(a);
-    float y1 = p.y;
-    float z1 = p.x * sin(a) + p.z * cos(a);
-
-    p.x = x1;
-    p.y = y1;
-    p.z = z1;
-}
-
-void rotateZ(point3d& p, float angle)// поворот по Оси Z.
-{
-    float a = angle * PI / 180.;
-
-    float x1 = p.x * cos(a) - p.y * sin(a);
-    float y1 = p.x * sin(a) + p.y * cos(a);
-    float z1 = p.z;
-
-    p.x = x1;
-    p.y = y1;
-    p.z = z1;
-}
-
-void rotate2d(point3d& p, float angle)// поворот по Оси Z.
-{
-    float a = angle * PI / 180.;
-
-    float x1 = p.x * cos(a) - p.y * sin(a);
-    float y1 = p.x * sin(a) + p.y * cos(a);
-
-    p.x = x1;
-    p.y = y1;
-}
-
-void rotate(point3d& p1, point3d& p2)
-{
-    float t = timeGetTime() * .01;
-    rotateZ(p1,t);
-    rotateX(p1, -60);
-    rotateZ(p2, t);
-    rotateX(p2, -60);
-
-}
-
-void project(point3d& p)
-{
-    float camDist = 3;
-    float x = p.x * camDist / (p.z + camDist);
-    float y = p.y * camDist / (p.z + camDist);
-    p.x = x;
-    p.y = y;
-}
-
-void line3d(point3d p1, point3d p2)
-{
-    rotate(p1, p2);
-    project(p1);
-    project(p2);
-    Line(p1, p2);
+    Plane(p1, p2, p2 + point3d{ 0, 0, 0.5 }, p1 + point3d{ 0, 0, 0.5 });
 }
 
 float dot(point3d p1, point3d p2)
@@ -216,7 +294,7 @@ void GenerateLevel()
     clrScr();
 
 
-    HPEN pen = CreatePen(PS_SOLID, 3, RGB(255, 255, 255));
+    HPEN pen = CreatePen(PS_SOLID, 2, RGB(255, 255, 255));
     SelectObject(window.context, pen);
 
     for (int i = 0; i < p.size(); i++)
@@ -225,7 +303,7 @@ void GenerateLevel()
         int k = (i+1) % p.size();
         auto p1 = p[j];
         auto p2 = p[k];
-        line3d(p1, p2);
+        plane3d(p1, p2);
 
     }
 
@@ -249,25 +327,42 @@ void GenerateLevel()
         point3d deltaC = delta;
         deltaC.x /= 6;
         deltaC.y /= 6;
-        notmalize2d(delta);
+        delta.normalized();
         rotate2d(delta, 90);
 
         float a = dot({ dx1,dy1 }, { dx2,dy2 });
         //std::string s = std::to_string(a);
         //TextOutA(window.context, p0.x*window.height/4+window.width/2, p0.y * window.height / 4 + window.height / 2, s.c_str(), s.length());
 
-        float scale = .1;
+        float scale = 0.2;
         point3d p3 = { p0.x + delta.x*scale,p0.y + delta.y*scale };
 
         if (a < -.1)
         {
+            w.push_back(p3);
 
-            line3d(p0, p3);
-            point3d p4 = { p3.x + deltaC.x,p3.y + deltaC.y,0 };
-            line3d(p3, p4);
-            point3d p5 = { p3.x - deltaC.x,p3.y - deltaC.y,0 };
-            line3d(p3, p5);
+            plane3d(p0, p3);
+            //point3d p4 = { p3.x + deltaC.x,p3.y + deltaC.y,0 };
+            //line3d(p3, p4);
+            //point3d p5 = { p3.x - deltaC.x,p3.y - deltaC.y,0 };
+            //line3d(p3, p5);
         }
+
+    }
+
+    for (int i = 0; i < w.size(); i++)
+    {
+        int j = i % w.size();
+        int k = (i + 1) % w.size();
+        auto p1 = w[j];
+        auto p2 = w[k];
+
+        float len = max((p2 - p1).magnitude() / 2 - 0.05, 0);
+        auto vector1 = (p2 - p1).normalized() * len;
+        auto vector2 = (p1 - p2).normalized() * len;
+
+        plane3d(p1, p1 + vector1);
+        plane3d(p2, p2 + vector2);
 
     }
 
@@ -305,7 +400,7 @@ void InitWindow()
 
 void InitGame()
 {
-    GenerateLevel();
+    //GenerateLevel();
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -316,8 +411,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     _In_ LPWSTR    lpCmdLine,
     _In_ int       nCmdShow)
 {
-    //srand(timeGetTime());
-    srand(0);
+    srand(timeGetTime());
+    //srand(0);
 
     InitWindow();//здесь инициализируем все что нужно для рисования в окне
     InitGame();//здесь инициализируем переменные игры
@@ -327,6 +422,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     {
         rec2 = 1;
         rec = rec_depth;
+
+        
         GenerateLevel();
         BitBlt(window.device_context, 0, 0, window.width, window.height, window.context, 0, 0, SRCCOPY);//копируем буфер в окно
         Sleep(16);//ждем 16 милисекунд (1/количество кадров в секунду)
