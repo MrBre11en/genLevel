@@ -6,35 +6,10 @@
 #include "math.h"
 #include "debugapi.h"
 #include <vector>
+#include <string>
+#include <stdlib.h>
+#include <iostream>
 
-// секция данных игры  
-typedef struct {
-    float x, y, width, height, rad, dx, dy, speed;
-    HBITMAP hBitmap;//хэндл к спрайту шарика 
-} sprite;
-
-int seed = 0;
-
-// фундаментальные настройки игры
-namespace ginfo {
-    const int gridSize = 256;
-    float cornerOffset = 0.125f;
-    int cellSize = 4;
-    int outerWallSize = 8;
-
-    float hallwaySize = 0.1f;
-}
-
-// библиотека типов клеток
-enum class cellType {
-    empty,
-    floor,
-    wall,
-    door,
-    lift,
-
-    reserved,
-};
 
 struct {
     HWND hWnd;//хэндл окна
@@ -42,305 +17,15 @@ struct {
     int width, height;//сюда сохраним размеры окна которое создаст программа
 } window;
 
-struct vector2 {
-    float x, y;
-};
-
-cellType map[ginfo::gridSize][ginfo::gridSize];// массив сетки уровня
-
-HBITMAP hBack;// хэндл для фонового изображения
-HBITMAP hFloor;
-///////////////////////////////////////////////////////////////////////////////////////////////////////////// cекция кода
-
-// Core функции
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-int GetRandom(int min = 1, int max = 0)
-{
-    if (max > min)
-    {
-        return rand() % min + (max - min);
-    }
-    else
-    {
-        return rand() % min;
-    }
-}
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-void ShowBitmap(HDC hDC, int x, int y, int x1, int y1, HBITMAP hBitmapBall, bool alpha = false)
-{
-    HBITMAP hbm, hOldbm;
-    HDC hMemDC;
-    BITMAP bm;
-
-    hMemDC = CreateCompatibleDC(hDC); // Создаем контекст памяти, совместимый с контекстом отображения
-    hOldbm = (HBITMAP)SelectObject(hMemDC, hBitmapBall);// Выбираем изображение bitmap в контекст памяти
-
-    if (hOldbm) // Если не было ошибок, продолжаем работу
-    {
-        GetObject(hBitmapBall, sizeof(BITMAP), (LPSTR)&bm); // Определяем размеры изображения
-
-        if (alpha)
-        {
-            TransparentBlt(window.context, x, y, x1, y1, hMemDC, 0, 0, x1, y1, RGB(0, 0, 0));//все пиксели черного цвета будут интепретированы как прозрачные
-        }
-        else
-        {
-            StretchBlt(hDC, x, y, x1, y1, hMemDC, 0, 0, bm.bmWidth, bm.bmHeight, SRCCOPY); // Рисуем изображение bitmap
-        }
-
-        SelectObject(hMemDC, hOldbm);// Восстанавливаем контекст памяти
-    }
-
-    DeleteDC(hMemDC); // Удаляем контекст памяти
-}
-
-//Выводит квадратные спрайты на экран
-HBRUSH hbrush;
-void ShowRect(HDC hDC, float left, float up, float sizeX, float sizeY, COLORREF color = RGB(255, 255, 255))
-{
-    hbrush = CreateSolidBrush(color);
-    RECT rect;
-
-    SelectObject(window.device_context, (HGDIOBJ)hbrush);
-    SetRect(&rect, left, up, left + sizeX, up + sizeY);
-    FillRect(hDC, &rect, hbrush);
-
-    DeleteObject(hbrush);
-
-}
-
-void ShowRacketAndBall()
-{
-    ShowBitmap(window.context, 0, 0, window.width, window.height, hBack);//задний фон
-
-
-
-    //ShowBitmap(window.context, racket.x - racket.width / 2., racket.y, racket.width, racket.height, racket.hBitmap);// ракетка игрока
-}
-
-// Функции-условия
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-bool HasNeightbour(int x, int y, cellType neightbour = cellType::empty) {
-    if (map[x][y] == neightbour) {
-        return false;
-    }
-    if (neightbour == cellType::empty && (x == 0 || x == ginfo::gridSize - 1 || y == 0 || y == ginfo::gridSize - 1)) {
-        return true;
-    }
-
-    for (int _x = x - 1; _x <= x + 1; _x++)
-    {
-        for (int _y = y - 1; _y <= y + 1; _y++)
-        {
-            if (_x != x && _y != y)
-            {
-                if (map[_x][_y] == neightbour) {
-                    return true;
-                }
-            }
-        }
-    }
-
-    return false;
-}
-
-bool isInnerCorner(int x, int y) {
-    if (map[x][y] == cellType::empty) {
-        return false;
-    }
-    if ((map[x - 1][y] != cellType::empty && map[x][y - 1] != cellType::empty && map[x - 1][y - 1] == cellType::empty) ||
-        (map[x + 1][y] != cellType::empty && map[x][y + 1] != cellType::empty && map[x + 1][y + 1] == cellType::empty) ||
-        (map[x + 1][y] != cellType::empty && map[x][y - 1] != cellType::empty && map[x + 1][y - 1] == cellType::empty) ||
-        (map[x - 1][y] != cellType::empty && map[x][y + 1] != cellType::empty && map[x - 1][y + 1] == cellType::empty)) {
-        return true;
-    }
-    return false;
-}
-
-// Функции для чего-то там в генерации
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-void ThickenCell(int x, int y, int thickness, cellType targetType = cellType::floor, cellType newType = cellType::wall)
-{
-    if (map[x][y] != newType) {
-        return;
-    }
-    int halfThickness = thickness / 2;
-
-    for (int _x = x - halfThickness; _x <= x + halfThickness; _x++)
-    {
-        for (int _y = y - halfThickness; _y <= y + halfThickness; _y++)
-        {
-            if (_x >= 0 && _x < ginfo::gridSize && _y >= 0 && _y < ginfo::gridSize && map[_x][_y] == targetType) {
-                map[_x][_y] = newType;
-            }
-            /*else
-            {
-                int new_x = x - _x;
-                int new_y = y - _y;
-                if (new_x >= 0 && new_x < ginfo::gridSize && new_y >= 0 && new_y < ginfo::gridSize && map[new_x][new_y] == targetType) {
-                    map[new_x][new_y] = newType;
-                }
-            }*/
-        }
-    }
-}
-
-// Паттерны генерации этажей
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-void CrossLayout()
-{
-    int hallwayRealSize = ceil(ginfo::gridSize * ginfo::hallwaySize);
-    const int halfGridSize = ginfo::gridSize / 2;
-
-    for (int x = 0; x < ginfo::gridSize; x++)
-    {
-        for (int y = 0; y < ginfo::gridSize; y++)
-        {
-            if ((map[x][y] == cellType::floor || map[x][y] == cellType::reserved) && HasNeightbour(x, y, cellType::wall)) {
-                map[x][y] = cellType::reserved;
-                ThickenCell(x, y, hallwayRealSize, cellType::floor, cellType::reserved);
-            }
-        }
-    }
-
-    int halfHallwayRealSize = hallwayRealSize / 2;
-
-    for (int x = halfGridSize - halfHallwayRealSize; x <= halfGridSize + halfHallwayRealSize; x++)
-    {
-        for (int y = 0; y < ginfo::gridSize; y++)
-        {
-            if (map[x][y] == cellType::floor) {
-                map[x][y] = cellType::reserved;
-            }
-        }
-    }
-
-    for (int y = halfGridSize - halfHallwayRealSize; y <= halfGridSize + halfHallwayRealSize; y++)
-    {
-        for (int x = 0; x < ginfo::gridSize; x++)
-        {
-            if (map[x][y] == cellType::floor) {
-                map[x][y] = cellType::reserved;
-            }
-        }
-    }
-
-    for (int i = 0; i < 2; i++)
-    {
-        for (int j = 0; j < 2; j++)
-        {
-            int quarter[halfGridSize][halfGridSize];
-
-            for (int x = i * halfGridSize; x < i * halfGridSize + halfGridSize; x++)
-            {
-                for (int y = j * halfGridSize; y < j * halfGridSize + halfGridSize; y++)
-                {
-                    if (map[x][y] == cellType::floor) {
-                        int _x = x - i * halfGridSize;
-                        int _y = y - j * halfGridSize;
-                        quarter[x - i * halfGridSize][y - j * halfGridSize] = 100;
-                    }
-                    else
-                    {
-                        quarter[x - i * halfGridSize][y - j * halfGridSize] = 0;
-                    }
-                }
-            }
-
-            for (int x = 0; x < halfGridSize; x++)
-            {
-                for (int y = 0; y < halfGridSize; y++)
-                {
-                    if (x == 8 && y == 13) {
-                        int f = 1;
-                    }
-                    int possibility = quarter[x][y];
-                    int rnd = GetRandom(100);
-                    //if (possibility > 0)
-                    //{
-                        if (rnd <= 100)
-                        {
-                            map[x + i * halfGridSize][y + j * halfGridSize] == cellType::wall;
-                        }
-                    //}
-                }
-            }
-        }
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-void (*levelPatterns[])() = { CrossLayout };
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-void BuildLevel()
-{
-    vector2 startOffset;
-    float halfGridSize = ginfo::gridSize * ginfo::cellSize / 2;
-    startOffset.x = window.width / 2 - halfGridSize;
-    startOffset.y = window.height / 2 - halfGridSize;
-
-    //cellType filledCells[ginfo::gridSize][ginfo::gridSize];
-    hFloor = (HBITMAP)LoadImageA(NULL, "racket.bmp", IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
-
-    for (int x = 0; x < ginfo::gridSize; x++)
-    {
-        for (int y = 0; y < ginfo::gridSize; y++)
-        {
-            cellType cell = map[x][y];
-            COLORREF color = RGB(0, 0, 0);
-
-
-            ///switch()
-
-            if (cell == cellType::floor)
-            {
-                color = RGB(100, 100, 100);
-            }
-            else if ((cell == cellType::wall))
-            {
-                color = RGB(255, 255, 255);
-            }
-
-            if (cell != cellType::empty) {
-                ShowRect(window.context, x * ginfo::cellSize + startOffset.x, y * ginfo::cellSize + startOffset.y, ginfo::cellSize, ginfo::cellSize, color);
-            }
-        }
-    }
-}
-
-float floorS(float a, float d)
-{
-    return d*((int)(a/d));
-}
-
-int pCount = 0;
-
-int sign(float a)
-{
-    if (fabs(a) > 0.5)
-    {
-        if (a > 0) return 1; else return -1;
-    }
-    return 0;
-}
-
-struct point {
-    int x;
-    int y;
+struct point3d {
+    float x;
+    float y;
+    float z;
 };
 
 int rec_depth=3;
 int rec;
-int rec2;
+float rec2;
 
 float getR(int q)
 {
@@ -348,9 +33,14 @@ float getR(int q)
     return (rand() % f - f / 2) / rec2 ;
 }
 
-int getR2(int q)
+float getR2(int q)
 {
     return (rand() % q - q / 2);
+}
+
+float getR11()
+{
+    return ((rand()%1000)/1000.0)*2.- 1.;
 }
 
 float sign_s(float a)
@@ -360,9 +50,9 @@ float sign_s(float a)
     return 0;
 }
 
-void div(std::vector<point> &p)
+void div(std::vector<point3d> &p)
 {
-    int q = ginfo::gridSize / 4.;
+    int q = window.width / 4.;
     rec--;
     if (rec < 1) return;
     int s = 100;
@@ -373,17 +63,13 @@ void div(std::vector<point> &p)
         auto tx = (p[i%sz].x + p[(i + 1)%sz].x) / 2.;
         auto ty = (p[i%sz].y + p[(i + 1)%sz].y) / 2.;
 
-
-        auto rX = getR(q);
-        auto rY = getR(q);
-
-        rX = sign_s(tx - ginfo::gridSize/2) * abs(rX);
-        rY = sign_s(ty - ginfo::gridSize / 2) * abs(rY);
+        auto rX = getR11()/(rec2+5);
+        auto rY = getR11()/(rec2+5);
 
         tx += rX;
         ty += rY;
 
-        point p2 = { tx,ty };
+        point3d p2 = { tx,ty,0 };
 
         if (i >= p.size()-1)
         {
@@ -400,176 +86,204 @@ void div(std::vector<point> &p)
 }
 
 
+
+void Line(point3d p1, point3d p2)
+{
+    p1.x = window.width / 2. + p1.x * window.height / 4.;
+    p1.y = window.height / 2. + p1.y * window.height / 4.;
+    p2.x = window.width / 2. + p2.x * window.height / 4.;
+    p2.y = window.height / 2. + p2.y * window.height / 4.;
+
+    MoveToEx(window.context, p1.x, p1.y, NULL);
+    LineTo(window.context, p2.x, p2.y);
+}
+int seed = 0;
+
+void clrScr()
+{
+    RECT rect;
+    GetClientRect(window.hWnd, &rect);
+    auto blackBrush = CreateSolidBrush(RGB(0, 0, 0));
+    FillRect(window.context, &rect, blackBrush);
+    DeleteObject(blackBrush);
+}
+
+void notmalize2d(point3d& p)
+{
+    float len = sqrt(p.x * p.x + p.y * p.y);
+    p.x /= len;
+    p.y /= len;
+}
+const float PI = 3.1415926535897;
+
+void rotateX(point3d& p, float angle)// поворот по Оси X.
+{
+    float a = angle * PI / 180.;
+
+    float x1 = p.x;
+    float y1 = p.y * cos(a) - p.z * sin(a);
+    float z1 = p.y * sin(a) + p.z * cos(a);
+
+    p.x = x1;
+    p.y = y1;
+    p.z = z1;
+}
+
+void rotateY(point3d& p, float angle)// поворот по Оси Y.
+{
+    float a = angle * PI / 180.;
+
+    float x1 = p.x * cos(a) - p.z * sin(a);
+    float y1 = p.y;
+    float z1 = p.x * sin(a) + p.z * cos(a);
+
+    p.x = x1;
+    p.y = y1;
+    p.z = z1;
+}
+
+void rotateZ(point3d& p, float angle)// поворот по Оси Z.
+{
+    float a = angle * PI / 180.;
+
+    float x1 = p.x * cos(a) - p.y * sin(a);
+    float y1 = p.x * sin(a) + p.y * cos(a);
+    float z1 = p.z;
+
+    p.x = x1;
+    p.y = y1;
+    p.z = z1;
+}
+
+void rotate2d(point3d& p, float angle)// поворот по Оси Z.
+{
+    float a = angle * PI / 180.;
+
+    float x1 = p.x * cos(a) - p.y * sin(a);
+    float y1 = p.x * sin(a) + p.y * cos(a);
+
+    p.x = x1;
+    p.y = y1;
+}
+
+void rotate(point3d& p1, point3d& p2)
+{
+    float t = timeGetTime() * .01;
+    rotateZ(p1,t);
+    rotateX(p1, -60);
+    rotateZ(p2, t);
+    rotateX(p2, -60);
+
+}
+
+void project(point3d& p)
+{
+    float camDist = 3;
+    float x = p.x * camDist / (p.z + camDist);
+    float y = p.y * camDist / (p.z + camDist);
+    p.x = x;
+    p.y = y;
+}
+
+void line3d(point3d p1, point3d p2)
+{
+    rotate(p1, p2);
+    project(p1);
+    project(p2);
+    Line(p1, p2);
+}
+
+float dot(point3d p1, point3d p2)
+{
+    return p1.x * p2.x + p1.y * p2.y;
+}
+
 void GenerateLevel()
 {
-    int cornerSize = floor(ginfo::gridSize * ginfo::cornerOffset);
-    int oppositeSize = ginfo::gridSize - cornerSize;
-    for (int x = 0; x < ginfo::gridSize; x++)
-    {
-        for (int y = 0; y < ginfo::gridSize; y++)
-        {
-            map[x][y] = cellType::empty;
 
-            if (x == 0 || x == ginfo::gridSize - 1 || y == 0|| y == ginfo::gridSize - 1)
-            {
-                map[x][y] = cellType::wall;
-            }
-        }
-    }
+  
+    std::vector<point3d> p;
 
-    //while (!GetAsyncKeyState(VK_RETURN))
-    {
-     //  Sleep(16);
-    }
+    srand(seed);
+    p.push_back({ -1.,-1,0.});
+    p.push_back({  1.,-1,0. });
+    p.push_back({  1., 1,0. });
+    p.push_back({ -1., 1,0. });
     
-    std::vector<point> p;
-    float d = 5.;
-    int q = ginfo::gridSize/d;
-    int r = ginfo::gridSize / d/1.2;
-    p.push_back({ q+ getR2(r), q+ getR2(r) });
-    p.push_back({ (int)(q*(d-1))+getR2(r), q + getR2(r) });
-    p.push_back({ (int)(q*(d-1))+ getR2(r), (int)(q * (d-1))+ getR2(r) });
-    p.push_back({ q+getR2(r), (int)(q*(d-1))+ getR2(r) });
-    //srand(timeGetTime()*.001);
-    srand(seed++);
     //rec++;
     div(p);
+
+    clrScr();
+
+
+    HPEN pen = CreatePen(PS_SOLID, 3, RGB(255, 255, 255));
+    SelectObject(window.context, pen);
 
     for (int i = 0; i < p.size(); i++)
     {
         int j = i % p.size();
         int k = (i+1) % p.size();
-        int x = p[j].x;
-        int y = p[j].y;
-        int x1 = p[k].x;
-        int y1 = p[k].y;
+        auto p1 = p[j];
+        auto p2 = p[k];
+        line3d(p1, p2);
 
-            for (int tx = min(x, x1); tx <= max(x, x1); tx++)
-            {
-                map[tx][y] = cellType::wall;
-            }
-            for (int ty = min(y, y1); ty < max(y, y1); ty++)
-            {
-                map[x1][ty] = cellType::wall;
-            }
     }
 
+    std::vector<point3d> w;
 
     for (int i = 0; i < p.size(); i++)
     {
-        int j = i % p.size();
-        int x = p[j].x;
-        int y = p[j].y;
+        int j = (i - 1) % p.size();
+        int k = (i + 1) % p.size();
 
-        int dxR = ginfo::gridSize - x;
-        int dxL = x;
+        auto p0 = p[i];
+        auto p1 = p[j];
+        auto p2 = p[k];
 
-        int dyR = ginfo::gridSize - y;
-        int dyL = y;
+        auto dx1 = p1.x - p0.x;
+        auto dy1 = p1.y - p0.y;
+        auto dx2 = p2.x - p0.x;
+        auto dy2 = p2.y - p0.y;
 
-        if (min(dxR, dxL) < min(dyR, dyL))
+        point3d delta = { p2.x - p1.x, p2.y - p1.y };
+        point3d deltaC = delta;
+        deltaC.x /= 6;
+        deltaC.y /= 6;
+        notmalize2d(delta);
+        rotate2d(delta, 90);
+
+        float a = dot({ dx1,dy1 }, { dx2,dy2 });
+        //std::string s = std::to_string(a);
+        //TextOutA(window.context, p0.x*window.height/4+window.width/2, p0.y * window.height / 4 + window.height / 2, s.c_str(), s.length());
+
+        float scale = .1;
+        point3d p3 = { p0.x + delta.x*scale,p0.y + delta.y*scale };
+
+        if (a < -.1)
         {
-            if (dxR < dxL)
-            {
-                for (int tx = x; tx < ginfo::gridSize; tx++)
-                {
-                    map[tx][y] = cellType::wall;
-                }
-            }
-            else
-            {
-                for (int tx = x; tx >=0; tx--)
-                {
-                    map[tx][y] = cellType::wall;
-                }
-            }
+
+            line3d(p0, p3);
+            point3d p4 = { p3.x + deltaC.x,p3.y + deltaC.y,0 };
+            line3d(p3, p4);
+            point3d p5 = { p3.x - deltaC.x,p3.y - deltaC.y,0 };
+            line3d(p3, p5);
         }
-        else
-        {
-            if (dyR < dyL)
-            {
-                for (int ty = y; ty < ginfo::gridSize; ty++)
-                {
-                    map[x][ty] = cellType::wall;
-                }
-            }
-            else
-            {
-                for (int ty = y; ty >= 0; ty--)
-                {
-                    map[x][ty] = cellType::wall;
-                }
-            }
-        }
+
     }
 
-
-
-
-
-    /*pCount++;
-    int pM = 1000;
-    float dirX = 1;
-    float dirY = 0;
-    bool dir = false;
-    srand(0);
+/*    for (int i = 0; i < w.size(); i++)
     {
-        int len = 5;
-        int x = ginfo::gridSize /5;
-        int y = ginfo::gridSize - ginfo::gridSize/5;
+        int j = i % w.size();
+        int k = (i + 1) % w.size();
 
-            for (int i = 0; i < pCount; i++)
-            {
-                int j = i;
-                if (i > len)
-                {
-                    len = i + rand() % 7+3;
-                    float jt = (rand() % 4-2)/2.;
-                    dirX = sin(j / (float)pCount * 3.14 * 2.+jt);
-                    dirY = cos(j / (float)pCount * 3.14 * 2.+jt);
+        Line(w[j], w[k]);
 
-                    if (fabs(dirX) > fabs(dirY))
-                    {
-                        dirY = 0;
-                        if (x < ginfo::gridSize / 8) dirX = 1;
-                        if (x > ginfo::gridSize - ginfo::gridSize / 8) dirX = -1;
-                    }
-                    else
-                    {
-                        dirX = 0;
-                        if (y < ginfo::gridSize / 8) dirY = 1;
-                        if (y > ginfo::gridSize - ginfo::gridSize / 8) dirY = -1;
-
-
-                    }
-                    dirX = sign(dirX);
-                    dirY = sign(dirY);
-
-
-
-                }
-
-                map[(int)x][(int)y] = cellType::wall;
-
-                x += dirX;
-                y += dirY;
-            }
     }
-
     */
 
 
-    float f = ginfo::gridSize/16;
-    for (int y = 0; y < ginfo::gridSize; y++)
-    {
-        for (int x = 0; x < ginfo::gridSize; x++)
-        {
-            float a = sin(f * x / (float)ginfo::gridSize);
-            float b = sin(f * y / (float)ginfo::gridSize);
-            float factor = 1-3*max(a , b);
-          //  if (factor>0) map[x][y] = cellType::wall;
-        }
-    }
+    DeleteObject(pen);
+
 
 
 }
@@ -591,15 +305,6 @@ void InitWindow()
 
 void InitGame()
 {
-    //в этой секции загружаем спрайты с помощью функций gdi
-    //пути относительные - файлы должны лежать рядом с .exe 
-    //результат работы LoadImageA сохраняет в хэндлах битмапов, рисование спрайтов будет произовдиться с помощью этих хэндлов
-    //racket.hBitmap = (HBITMAP)LoadImageA(NULL, "racket.bmp", IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
-    hBack = (HBITMAP)LoadImageA(NULL, "back.bmp", IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
-    //------------------------------------------------------
-
-    //racket.x = window.width / 2.;//ракетка посередине окна
-    //racket.y = window.height - racket.height;//чуть выше низа экрана - на высоту ракетки
     GenerateLevel();
 }
 
@@ -623,13 +328,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
         rec2 = 1;
         rec = rec_depth;
         GenerateLevel();
-        ShowRacketAndBall();//рисуем фон, ракетку и шарик
-        BuildLevel();
         BitBlt(window.device_context, 0, 0, window.width, window.height, window.context, 0, 0, SRCCOPY);//копируем буфер в окно
         Sleep(16);//ждем 16 милисекунд (1/количество кадров в секунду)
-        while (!GetAsyncKeyState(VK_RETURN))
+        if (GetAsyncKeyState(VK_RETURN))
         {
-            Sleep(60);
+            seed++;
         }
     }
 }
